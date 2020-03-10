@@ -1,0 +1,68 @@
+# This is a sample build configuration for PHP.
+# Check our guides at https://confluence.atlassian.com/x/e8YWN for more examples.
+# Only use spaces to indent your .yml configuration.
+# You can specify a custom docker image from Docker Hub as your build environment.
+# run composer check-platform-reqs for a list of required extensions.
+image: php:7.2-fpm
+pipelines:
+  default:
+    - step:
+        name: Test
+        caches:
+          - composer
+        artifacts:
+          - storage/**
+          - vendor/**
+          - public/**
+          - .env
+        script:
+          #Update Image
+          - apt-get update
+
+          #Install Zip
+          - apt-get install -qy zlib1g-dev zip unzip
+          - docker-php-ext-install zip
+
+          #Install Git
+          - apt-get install -qy git
+          - apt-get install -qy curl
+
+          #Install MySql
+          - apt-get install -qy mysql-client
+          - docker-php-ext-install pdo_mysql
+
+          #Install Crypt
+          - apt-get install -qy libmcrypt-dev
+          - yes | pecl install mcrypt-1.0.1
+
+          #Install Composer Platform Reqs
+          - docker-php-ext-install bcmath
+
+          #Copy Environment File
+          - cp .env.example .env
+
+          #Install Composer
+          - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+          - composer install
+
+          #Migrate Database
+          - php artisan key:generate
+          - php artisan migrate
+
+          #Run Test Suite
+          - ./vendor/bin/phpunit --verbose
+        services:
+          #Add MySql Database
+          - mysql
+
+definitions:
+  services:
+    mysql:
+      image: mysql:5.7
+      environment:
+        MYSQL_DATABASE: 'test'
+        MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+        MYSQL_USER: 'test'
+        MYSQL_PASSWORD: 'secret'
+    redis:
+      image: redis
